@@ -54,7 +54,8 @@ noinst_PROGRAMS = test_texthash$(EXEEXT) test_texthash2$(EXEEXT) \
 	$(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3)
 @HAVE_AUDIO_HASH_TRUE@am__append_1 = test_audio 
 @HAVE_IMAGE_HASH_TRUE@am__append_2 = test_image test_mhimagehash
-@HAVE_VIDEO_HASH_TRUE@am__append_3 = test_video
+@HAVE_VIDEO_HASH_TRUE@am__append_3 = test_video \
+@HAVE_VIDEO_HASH_TRUE@	create_video_fingerprint
 subdir = examples
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(top_srcdir)/depcomp
@@ -71,8 +72,17 @@ CONFIG_CLEAN_VPATH_FILES =
 @HAVE_AUDIO_HASH_TRUE@am__EXEEXT_1 = test_audio$(EXEEXT)
 @HAVE_IMAGE_HASH_TRUE@am__EXEEXT_2 = test_image$(EXEEXT) \
 @HAVE_IMAGE_HASH_TRUE@	test_mhimagehash$(EXEEXT)
-@HAVE_VIDEO_HASH_TRUE@am__EXEEXT_3 = test_video$(EXEEXT)
+@HAVE_VIDEO_HASH_TRUE@am__EXEEXT_3 = test_video$(EXEEXT) \
+@HAVE_VIDEO_HASH_TRUE@	create_video_fingerprint$(EXEEXT)
 PROGRAMS = $(noinst_PROGRAMS)
+am__create_video_fingerprint_SOURCES_DIST =  \
+	create_video_fingerprint.cpp
+@HAVE_VIDEO_HASH_TRUE@am_create_video_fingerprint_OBJECTS =  \
+@HAVE_VIDEO_HASH_TRUE@	create_video_fingerprint.$(OBJEXT)
+create_video_fingerprint_OBJECTS =  \
+	$(am_create_video_fingerprint_OBJECTS)
+@HAVE_VIDEO_HASH_TRUE@create_video_fingerprint_DEPENDENCIES =  \
+@HAVE_VIDEO_HASH_TRUE@	$(top_builddir)/src/libpHash.la
 am__test_audio_SOURCES_DIST = test_audiophash.cpp
 @HAVE_AUDIO_HASH_TRUE@am_test_audio_OBJECTS =  \
 @HAVE_AUDIO_HASH_TRUE@	test_audiophash.$(OBJEXT)
@@ -116,11 +126,12 @@ CXXLD = $(CXX)
 CXXLINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(test_audio_SOURCES) $(test_image_SOURCES) \
-	$(test_mhimagehash_SOURCES) $(test_texthash_SOURCES) \
-	$(test_texthash2_SOURCES) $(test_video_SOURCES)
-DIST_SOURCES = $(am__test_audio_SOURCES_DIST) \
-	$(am__test_image_SOURCES_DIST) \
+SOURCES = $(create_video_fingerprint_SOURCES) $(test_audio_SOURCES) \
+	$(test_image_SOURCES) $(test_mhimagehash_SOURCES) \
+	$(test_texthash_SOURCES) $(test_texthash2_SOURCES) \
+	$(test_video_SOURCES)
+DIST_SOURCES = $(am__create_video_fingerprint_SOURCES_DIST) \
+	$(am__test_audio_SOURCES_DIST) $(am__test_image_SOURCES_DIST) \
 	$(am__test_mhimagehash_SOURCES_DIST) $(test_texthash_SOURCES) \
 	$(test_texthash2_SOURCES) $(am__test_video_SOURCES_DIST)
 am__can_run_installinfo = \
@@ -267,6 +278,8 @@ test_texthash2_LDADD = $(top_builddir)/src/libpHash.la
 @HAVE_IMAGE_HASH_TRUE@test_mhimagehash_LDADD = $(top_builddir)/src/libpHash.la
 @HAVE_VIDEO_HASH_TRUE@test_video_SOURCES = test_dctvideohash.cpp
 @HAVE_VIDEO_HASH_TRUE@test_video_LDADD = $(top_builddir)/src/libpHash.la
+@HAVE_VIDEO_HASH_TRUE@create_video_fingerprint_SOURCES = create_video_fingerprint.cpp
+@HAVE_VIDEO_HASH_TRUE@create_video_fingerprint_LDADD = $(top_builddir)/src/libpHash.la
 all: all-am
 
 .SUFFIXES:
@@ -310,6 +323,9 @@ clean-noinstPROGRAMS:
 	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
 	echo " rm -f" $$list; \
 	rm -f $$list
+create_video_fingerprint$(EXEEXT): $(create_video_fingerprint_OBJECTS) $(create_video_fingerprint_DEPENDENCIES) $(EXTRA_create_video_fingerprint_DEPENDENCIES) 
+	@rm -f create_video_fingerprint$(EXEEXT)
+	$(CXXLINK) $(create_video_fingerprint_OBJECTS) $(create_video_fingerprint_LDADD) $(LIBS)
 test_audio$(EXEEXT): $(test_audio_OBJECTS) $(test_audio_DEPENDENCIES) $(EXTRA_test_audio_DEPENDENCIES) 
 	@rm -f test_audio$(EXEEXT)
 	$(CXXLINK) $(test_audio_OBJECTS) $(test_audio_LDADD) $(LIBS)
@@ -335,6 +351,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/create_video_fingerprint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_audiophash.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_dctvideohash.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_imagephash.Po@am__quote@

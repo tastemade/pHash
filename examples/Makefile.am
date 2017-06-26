@@ -28,4 +28,8 @@ if HAVE_VIDEO_HASH
 noinst_PROGRAMS += test_video
 test_video_SOURCES = test_dctvideohash.cpp
 test_video_LDADD = $(top_builddir)/src/libpHash.la
+
+noinst_PROGRAMS += create_video_fingerprint
+create_video_fingerprint_SOURCES = create_video_fingerprint.cpp
+create_video_fingerprint_LDADD = $(top_builddir)/src/libpHash.la
 endif

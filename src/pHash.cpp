@@ -475,190 +475,231 @@ DP** ph_dct_image_hashes(char *files[], int count, int threads)
 
 #if defined(HAVE_VIDEO_HASH) && defined(HAVE_IMAGE_HASH)
 
-
+#include<string>
 CImgList<uint8_t>* ph_getKeyFramesFromVideo(const char *filename){
 
     long N =  GetNumberVideoFrames(filename);
-
+    printf("NUM FRAMES: %ld\n", N);
     if (N < 0){
+      printf("NUMBER OF FRAMES IS NEGATIVE\n");
 	return NULL;
     }
     
-    float frames_per_sec = 0.5*fps(filename);
-    if (frames_per_sec < 0){
-	return NULL;
-    }
-
-    int step = (int)(frames_per_sec + ROUNDING_FACTOR(frames_per_sec));
-    long nbframes = (long)(N/step);
-
-    float *dist = (float*)malloc((nbframes)*sizeof(float));
-    if (!dist){
-	return NULL;
-    }
-    CImg<float> prev(64,1,1,1,0);
-
+    
     VFInfo st_info;
     st_info.filename = filename;
-    st_info.nb_retrieval = 100;
-    st_info.step = step;
+    st_info.nb_retrieval = 1;
+    st_info.step = 1;
     st_info.pixelformat = 0;
     st_info.pFormatCtx = NULL;
-    st_info.width = -1;
-    st_info.height = -1;
-
-    CImgList<uint8_t> *pframelist = new CImgList<uint8_t>();
-    if (!pframelist){
-	return NULL;
-    }
-    int nbread = 0;
-    int k=0;
-    do {
-	nbread = NextFrames(&st_info, pframelist);
-	if (nbread < 0){
-	    delete pframelist;
-	    free(dist);
-	    return NULL;
-	}
-	unsigned int i = 0;
-        while ((i < pframelist->size()) && (k < nbframes)){
-	    CImg<uint8_t> current = pframelist->at(i++);
-	    CImg<float> hist = current.get_histogram(64,0,255);
-            float d = 0.0;
-	    dist[k] = 0.0;
-	    cimg_forX(hist,X){
-		d =  hist(X) - prev(X);
-		d = (d>=0) ? d : -d;
-		dist[k] += d;
-		prev(X) = hist(X);
-	    }
-            k++;
-	}
-        pframelist->clear();
-    } while ((nbread >= st_info.nb_retrieval)&&(k < nbframes));
-    vfinfo_close(&st_info);
-
-    int S = 10;
-    int L = 50;
-    int alpha1 = 3;
-    int alpha2 = 2;
-    int s_begin, s_end;
-    int l_begin, l_end;
-    uint8_t *bnds = (uint8_t*)malloc(nbframes*sizeof(uint8_t));
-    if (!bnds){
-	delete pframelist;
-	free(dist);
-	return NULL;
-    }
-
-    int nbboundaries = 0;
-    k = 1;
-    bnds[0] = 1;
-    do {
-	s_begin = (k-S >= 0) ? k-S : 0;
-	s_end   = (k+S < nbframes) ? k+S : nbframes-1;
-	l_begin = (k-L >= 0) ? k-L : 0;
-	l_end   = (k+L < nbframes) ? k+L : nbframes-1;
-
-	/* get global average */
-	float ave_global, sum_global = 0.0, dev_global = 0.0;
-	for (int i=l_begin;i<=l_end;i++){
-	    sum_global += dist[i];
-	}
-	ave_global = sum_global/((float)(l_end-l_begin+1));
-
-	/*get global deviation */
-	for (int i=l_begin;i<=l_end;i++){
-	    float dev = ave_global - dist[i];
-	    dev = (dev >= 0) ? dev : -1*dev;
-	    dev_global += dev;
-	}
-	dev_global = dev_global/((float)(l_end-l_begin+1));
-
-	/* global threshold */
-	float T_global = ave_global + alpha1*dev_global;
-
-	/* get local maximum */
-	int localmaxpos = s_begin;
-	for (int i=s_begin;i<=s_end;i++){
-	    if (dist[i] > dist[localmaxpos])
-		localmaxpos = i;
-	}
-        /* get 2nd local maximum */
-	int localmaxpos2 = s_begin;
-	float localmax2 = 0;
-	for (int i=s_begin;i<=s_end;i++){
-	    if (i == localmaxpos)
-		continue;
-	    if (dist[i] > localmax2){
-		localmaxpos2 = i;
-		localmax2 = dist[i];
-	    }
-	}
-        float T_local = alpha2*dist[localmaxpos2];
-	float Thresh = (T_global >= T_local) ? T_global : T_local;
-
-	if ((dist[k] == dist[localmaxpos])&&(dist[k] > Thresh)){
-	    bnds[k] = 1;
-	    nbboundaries++;
-	}
-	else {
-	    bnds[k] = 0;
-	}
-	k++;
-    } while ( k < nbframes-1);
-    bnds[nbframes-1]=1;
-    nbboundaries += 2;
-
-    int start = 0;
-    int end = 0;
-    int nbselectedframes = 0;
-    do {
-	/* find next boundary */
-	do {end++;} while ((bnds[end]!=1)&&(end < nbframes));
-       
-	/* find min disparity within bounds */
-	int minpos = start+1;
-	for (int i=start+1; i < end;i++){
-	    if (dist[i] < dist[minpos])
-		minpos = i;
-	}
-	bnds[minpos] = 2;
-	nbselectedframes++;
-	start = end;
-    } while (start < nbframes-1);
-
-    st_info.nb_retrieval = 1;
     st_info.width = 32;
     st_info.height = 32;
-    k = 0;
-    do {
-	if (bnds[k]==2){
-	    if (ReadFrames(&st_info, pframelist, k*st_info.step,k*st_info.step + 1) < 0){
-		delete pframelist;
-		free(dist);
-		return NULL;
-	    }
-	}
-	k++;
-    } while (k < nbframes);
+    
+    
+    int frameIndex1 = (int)(N * 0.25f);
+    int frameIndex2 = (int)(N * 0.5f );
+    int frameIndex3 = (int)(N * 0.75f);
+    printf("frame indexes: %i %i %i / %ld\n", frameIndex1, frameIndex2, frameIndex3, N);
+    
+    CImgList<uint8_t> *pframelist = new CImgList<uint8_t>();
+    ReadFrames(&st_info, pframelist, frameIndex1, frameIndex1);
+    ReadFrames(&st_info, pframelist, frameIndex2, frameIndex2);
+    ReadFrames(&st_info, pframelist, frameIndex3, frameIndex3);
+    
     vfinfo_close(&st_info);
-
-    free(bnds);
-    bnds = NULL;
-    free(dist);
-    dist = NULL;
-
+    
+    pframelist->save((string(filename) + "-out.png").c_str(), 1);
+    
+    printf("num key frames: %i\n", pframelist->size());
+    if (pframelist->size() != 3) {
+      delete pframelist;
+      printf("NUMBER OF KEY FRAMES IS NOT 3\n");
+      return NULL;
+    }
+    
     return pframelist;
+    
+    
+    
+    
+  //   float frames_per_sec = 0.5*fps(filename);
+  //   if (frames_per_sec < 0){
+	// return NULL;
+  //   }
+
+  //   int step = (int)(frames_per_sec + ROUNDING_FACTOR(frames_per_sec));
+  //   long nbframes = (long)(N/step);
+
+  //   float *dist = (float*)malloc((nbframes)*sizeof(float));
+  //   if (!dist){
+	// return NULL;
+  //   }
+  //   CImg<float> prev(64,1,1,1,0);
+
+  //   VFInfo st_info;
+  //   st_info.filename = filename;
+  //   st_info.nb_retrieval = 100;
+  //   st_info.step = step;
+  //   st_info.pixelformat = 0;
+  //   st_info.pFormatCtx = NULL;
+  //   st_info.width = -1;
+  //   st_info.height = -1;
+
+  //   CImgList<uint8_t> *pframelist = new CImgList<uint8_t>();
+  //   if (!pframelist){
+	// return NULL;
+  //   }
+  //   int nbread = 0;
+  //   int k=0;
+  //   do {
+	// nbread = NextFrames(&st_info, pframelist);
+	// if (nbread < 0){
+	//     delete pframelist;
+	//     free(dist);
+	//     return NULL;
+	// }
+	// unsigned int i = 0;
+  //       while ((i < pframelist->size()) && (k < nbframes)){
+	//     CImg<uint8_t> current = pframelist->at(i++);
+	//     CImg<float> hist = current.get_histogram(64,0,255);
+  //           float d = 0.0;
+	//     dist[k] = 0.0;
+	//     cimg_forX(hist,X){
+	// 	d =  hist(X) - prev(X);
+	// 	d = (d>=0) ? d : -d;
+	// 	dist[k] += d;
+	// 	prev(X) = hist(X);
+	//     }
+  //           k++;
+	// }
+  //       pframelist->clear();
+  //   } while ((nbread >= st_info.nb_retrieval)&&(k < nbframes));
+  //   vfinfo_close(&st_info);
+
+  //   int S = 10;
+  //   int L = 50;
+  //   int alpha1 = 3;
+  //   int alpha2 = 2;
+  //   int s_begin, s_end;
+  //   int l_begin, l_end;
+  //   uint8_t *bnds = (uint8_t*)malloc(nbframes*sizeof(uint8_t));
+  //   if (!bnds){
+	// delete pframelist;
+	// free(dist);
+	// return NULL;
+  //   }
+
+  //   int nbboundaries = 0;
+  //   k = 1;
+  //   bnds[0] = 1;
+  //   do {
+	// s_begin = (k-S >= 0) ? k-S : 0;
+	// s_end   = (k+S < nbframes) ? k+S : nbframes-1;
+	// l_begin = (k-L >= 0) ? k-L : 0;
+	// l_end   = (k+L < nbframes) ? k+L : nbframes-1;
+
+	// /* get global average */
+	// float ave_global, sum_global = 0.0, dev_global = 0.0;
+	// for (int i=l_begin;i<=l_end;i++){
+	//     sum_global += dist[i];
+	// }
+	// ave_global = sum_global/((float)(l_end-l_begin+1));
+
+	// /*get global deviation */
+	// for (int i=l_begin;i<=l_end;i++){
+	//     float dev = ave_global - dist[i];
+	//     dev = (dev >= 0) ? dev : -1*dev;
+	//     dev_global += dev;
+	// }
+	// dev_global = dev_global/((float)(l_end-l_begin+1));
+
+	// /* global threshold */
+	// float T_global = ave_global + alpha1*dev_global;
+
+	// /* get local maximum */
+	// int localmaxpos = s_begin;
+	// for (int i=s_begin;i<=s_end;i++){
+	//     if (dist[i] > dist[localmaxpos])
+	// 	localmaxpos = i;
+	// }
+  //       /* get 2nd local maximum */
+	// int localmaxpos2 = s_begin;
+	// float localmax2 = 0;
+	// for (int i=s_begin;i<=s_end;i++){
+	//     if (i == localmaxpos)
+	// 	continue;
+	//     if (dist[i] > localmax2){
+	// 	localmaxpos2 = i;
+	// 	localmax2 = dist[i];
+	//     }
+	// }
+  //       float T_local = alpha2*dist[localmaxpos2];
+	// float Thresh = (T_global >= T_local) ? T_global : T_local;
+
+	// if ((dist[k] == dist[localmaxpos])&&(dist[k] > Thresh)){
+	//     bnds[k] = 1;
+	//     nbboundaries++;
+	// }
+	// else {
+	//     bnds[k] = 0;
+	// }
+	// k++;
+  //   } while ( k < nbframes-1);
+  //   bnds[nbframes-1]=1;
+  //   nbboundaries += 2;
+
+  //   int start = 0;
+  //   int end = 0;
+  //   int nbselectedframes = 0;
+  //   do {
+	// /* find next boundary */
+	// do {end++;} while ((bnds[end]!=1)&&(end < nbframes));
+       
+	// /* find min disparity within bounds */
+	// int minpos = start+1;
+	// for (int i=start+1; i < end;i++){
+	//     if (dist[i] < dist[minpos])
+	// 	minpos = i;
+	// }
+	// bnds[minpos] = 2;
+	// nbselectedframes++;
+	// start = end;
+  //   } while (start < nbframes-1);
+
+  //   st_info.nb_retrieval = 1;
+  //   st_info.width = 32;
+  //   st_info.height = 32;
+  //   k = 0;
+  //   do {
+	// if (bnds[k]==2){
+	//     if (ReadFrames(&st_info, pframelist, k*st_info.step,k*st_info.step + 1) < 0){
+	// 	delete pframelist;
+	// 	free(dist);
+	// 	return NULL;
+	//     }
+	// }
+	// k++;
+  //   } while (k < nbframes);
+  //   vfinfo_close(&st_info);
+
+  //   free(bnds);
+  //   bnds = NULL;
+  //   free(dist);
+  //   dist = NULL;
+
+  //   printf("final size: %i\n", pframelist->size());
+  //   return pframelist;
 }
 
 
 ulong64* ph_dct_videohash(const char *filename, int &Length){
 
     CImgList<uint8_t> *keyframes = ph_getKeyFramesFromVideo(filename);
-    if (keyframes == NULL)
-	return NULL;
-
+    if (keyframes == NULL) {
+      printf("keyframes NULL\n");
+	    return NULL;
+    }
+  
     Length = keyframes->size();
 
     ulong64 *hash = (ulong64*)malloc(sizeof(ulong64)*Length);
@@ -770,29 +811,29 @@ DP** ph_dct_video_hashes(char *files[], int count, int threads)
 
 double ph_dct_videohash_dist(ulong64 *hashA, int N1, ulong64 *hashB, int N2, int threshold){
 
-    int den = (N1 <= N2) ? N1 : N2;
-    int C[N1+1][N2+1];
+  int C[N1+1][N2+1];
 
-    for (int i=0;i<N1+1;i++){
-	C[i][0] = 0;
+  for (int i=0;i<N1+1;i++){
+    C[i][0] = 0;
+  }
+  for (int j=0;j<N2+1;j++){
+    C[0][j] = 0;
+  }
+  for (int i=1;i<N1+1;i++){
+    for (int j=1;j<N2+1;j++){
+      int d = ph_hamming_distance(hashA[i-1],hashB[j-1]);
+      if (d <= threshold){
+        C[i][j] = C[i-1][j-1] + 1;
+      } else {
+        C[i][j] = ((C[i-1][j] >= C[i][j-1])) ? C[i-1][j] : C[i][j-1];
+      }
     }
-    for (int j=0;j<N2+1;j++){
-	C[0][j] = 0;
-    }
-    for (int i=1;i<N1+1;i++){
-	for (int j=1;j<N2+1;j++){
-	    int d = ph_hamming_distance(hashA[i-1],hashB[j-1]);
-	    if (d <= threshold){
-		C[i][j] = C[i-1][j-1] + 1;
-	    } else {
-		C[i][j] = ((C[i-1][j] >= C[i][j-1])) ? C[i-1][j] : C[i][j-1];
-	    }
-	}
-    }
+  }
 
-    double result = (double)(C[N1][N2])/(double)(den);
+  int den = (N1 <= N2) ? N1 : N2;
+  double result = (double)(C[N1][N2])/(double)(den);
 
-    return result;
+  return result;
 }
 
 #endif

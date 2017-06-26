@@ -5,6 +5,8 @@ Makefile
 *.lo
 *.la
 *.mp4
+*.png
+*.cache
 /CImg.h
 /config.h
 /config.log

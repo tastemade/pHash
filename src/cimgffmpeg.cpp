@@ -54,12 +54,16 @@ int ReadFrames(VFInfo *st_info, CImgList<uint8_t> *pFrameList, unsigned int low_
 	    av_register_all();
 	
 	    // Open video file
-	    if(avformat_open_input(&st_info->pFormatCtx, st_info->filename, NULL, NULL)!=0)
+	    if(avformat_open_input(&st_info->pFormatCtx, st_info->filename, NULL, NULL)!=0) {
+        printf("COULD NOT OPEN\n");
 		return -1 ; // Couldn't open file
+      }
 	 
 	    // Retrieve stream information
-	    if(avformat_find_stream_info(st_info->pFormatCtx,NULL)<0)
+	    if(avformat_find_stream_info(st_info->pFormatCtx,NULL)<0) {
+        printf("COULD NOT GET STREAM INFO\n");
 		return -1; // Couldn't find stream information
+      }
 	
 	    //dump_format(pFormatCtx,0,NULL,0);//debugging function to print infomation about format
 	
@@ -73,13 +77,16 @@ int ReadFrames(VFInfo *st_info, CImgList<uint8_t> *pFrameList, unsigned int low_
 		    break;
 		}
 	    }
-	    if(st_info->videoStream==-1)
+	    if(st_info->videoStream==-1) {
+        printf("NO STREAM INFO\n");
 		return -1; //no video stream
+      }
 	
 	
 	    // Get a pointer to the codec context for the video stream
 	    st_info->pCodecCtx = st_info->pFormatCtx->streams[st_info->videoStream]->codec;
 	    if (st_info->pCodecCtx == NULL){
+        printf("NO CODEC\n");
 		return -1;
 	    }
 
@@ -87,11 +94,16 @@ int ReadFrames(VFInfo *st_info, CImgList<uint8_t> *pFrameList, unsigned int low_
 	    st_info->pCodec = avcodec_find_decoder(st_info->pCodecCtx->codec_id);
 	    if(st_info->pCodec==NULL) 
 	    {
+        printf("NO DECODER\n");
 	  	return -1 ; // Codec not found
 	    }
 	    // Open codec
-	    if(avcodec_open2(st_info->pCodecCtx, st_info->pCodec,NULL)<0)
+      int ret = avcodec_open2(st_info->pCodecCtx, st_info->pCodec,NULL);
+	    if(ret < 0) {
+        char errstr[200];
+        printf("COULD NOT OPEN CODEC: %s\n", av_make_error_string(errstr, 200, ret));
 		return -1; // Could not open codec
+      }
 
 	    st_info->height = (st_info->height<=0) ? st_info->pCodecCtx->height : st_info->height;
 	    st_info->width  = (st_info->width<= 0) ? st_info->pCodecCtx->width : st_info->width;
@@ -101,21 +113,27 @@ int ReadFrames(VFInfo *st_info, CImgList<uint8_t> *pFrameList, unsigned int low_
 
 	// Allocate video frame
 	pFrame=avcodec_alloc_frame();
-	if (pFrame==NULL)
+	if (pFrame==NULL) {
+    printf("pFrame NULL\n");
 	    return -1;
+  }
 
 	// Allocate an AVFrame structure
 	AVFrame *pConvertedFrame = avcodec_alloc_frame();
-	if(pConvertedFrame==NULL)
+	if(pConvertedFrame==NULL) {
+    printf("pConvertedFrame NULL\n");
 	  return -1;
+  }
 		
 	uint8_t *buffer;
 	int numBytes;
 	// Determine required buffer size and allocate buffer
 	numBytes=avpicture_get_size(ffmpeg_pixfmt, st_info->width,st_info->height);
 	buffer=(uint8_t *)av_malloc(numBytes*sizeof(uint8_t));
-	if (buffer == NULL)
+	if (buffer == NULL) {
+    printf("buffer NULL\n");
 	    return -1;
+  }
 
 	avpicture_fill((AVPicture *)pConvertedFrame,buffer,ffmpeg_pixfmt,st_info->width,st_info->height);
 		
@@ -198,7 +216,7 @@ int NextFrames(VFInfo *st_info, CImgList<uint8_t> *pFrameList)
 	if (st_info->pFormatCtx == NULL)
 	{
 	        st_info->current_index = 0;
-		st_info->next_index = 0;
+		  st_info->next_index = 0;
 		av_register_all();
 		st_info->videoStream = -1;
 		//st_info->pFormatCtx = (AVFormatContext*)malloc(sizeof(AVFormatContext));
@@ -344,11 +362,11 @@ int NextFrames(VFInfo *st_info, CImgList<uint8_t> *pFrameList)
 
 int GetNumberStreams(const char *file)
 {
-	 AVFormatContext *pFormatCtx;
+	 AVFormatContext *pFormatCtx = NULL;
 	 av_log_set_level(AV_LOG_QUIET);
 	 av_register_all();
 	// Open video file
-	if (avformat_open_input(&pFormatCtx, file, NULL, NULL))
+	if (avformat_open_input(&pFormatCtx, file, NULL, NULL)<0)
 	  return -1 ; // Couldn't open file
 		 
 	// Retrieve stream information
@@ -362,16 +380,24 @@ int GetNumberStreams(const char *file)
 long GetNumberVideoFrames(const char *file)
 {
     long nb_frames = 0L;
-	AVFormatContext *pFormatCtx;
+	AVFormatContext *pFormatCtx = NULL;
     av_log_set_level(AV_LOG_QUIET);
 	av_register_all();
 	// Open video file
-	if (avformat_open_input(&pFormatCtx, file, NULL, NULL))
+  int ret = avformat_open_input(&pFormatCtx, file, NULL, NULL);
+	if (ret<0) {
+    char errstr[200];
+    printf("COULD NOT OPEN FILE: %s\n", av_make_error_string(errstr, 200, ret));
 	  return -1 ; // Couldn't open file
+  }
 			 
 	// Retrieve stream information
-	if(avformat_find_stream_info(pFormatCtx, NULL)<0)
+  ret = avformat_find_stream_info(pFormatCtx, NULL);
+	if(ret<0) {
+    char errstr[200];
+    printf("COULD NOT FIND STREAM INFO: %s\n", av_make_error_string(errstr, 200, ret));
 	  return -1; // Couldn't find stream information
+  }
 		
 	// Find the first video stream
 	int videoStream=-1;
@@ -383,8 +409,10 @@ long GetNumberVideoFrames(const char *file)
 		    break;
              }
 	}
-	if(videoStream==-1)
+	if(videoStream==-1) {
+    printf("DID NOT FIND STREAM INFO\n");
 	   return -1; // Didn't find a video stream
+  }
 	AVStream *str = pFormatCtx->streams[videoStream];
 		
         nb_frames = str->nb_frames;
@@ -408,7 +436,7 @@ long GetNumberVideoFrames(const char *file)
 float fps(const char *filename)
 {
         float result = 0;
-	AVFormatContext *pFormatCtx;
+	AVFormatContext *pFormatCtx = NULL;
 	
 	// Open video file
 	if (avformat_open_input(&pFormatCtx, filename, NULL, NULL))
