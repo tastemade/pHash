@@ -1,5 +1,10 @@
 # Installing (Tastemade)
 
+sudo yum install yasm
+# OR
+sudo apt-get install yasm
+
+
 git clone https://git.ffmpeg.org/ffmpeg.git ffmpeg
 cd ffmpeg
 git checkout release/2.1
@@ -26,6 +31,8 @@ sudo cp cimg/CImg.h /usr/local/include/
 
 
 # automake only needed for development
+sudo apt-get install automake
+# OR
 curl http://ftp.gnu.org/gnu/automake/automake-1.12.2.tar.gz > automake.tar.gz
 tar -zxf automake.tar.gz
 rm automake.tar.gz
@@ -38,19 +45,6 @@ sudo make install
 
 git clone git@github.com:tastemade/pHash.git phash
 cd phash
-
-
-curl http://www.phash.org/releases/pHash-0.9.6.tar.gz > phash.tar.gz
-tar -xzf phash.tar.gz
-rm phash.tar.gz
-mv pHash-0.9.6 phash
-cd phash
 sudo cp /usr/local/include/CImg.h ./
 ./configure LIBS='-lavcodec -lavutil' --enable-audio-hash=no
 make
-sudo make install
-
-
-
-
-AVFormatContext *pFormatCtx = NULL;

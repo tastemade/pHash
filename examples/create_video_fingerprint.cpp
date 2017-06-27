@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
   
   fingerprint_t fingerprint = createFingerprint(filepath);
   printf(
-    "{\"hash1\":\"%llx\", \"hash2\":\"%llx\", \"hash3\":\"%llx\"}\n",
+    "%llu %llu %llu\n",
     fingerprint.hash1, fingerprint.hash2, fingerprint.hash3
   );
   
@@ -61,30 +61,44 @@ fingerprint_t createFingerprint(const char *filename) {
   openVideo(filename, &fileFormatCtx, &videoStream);
   
   CImgList<uint8_t>* frames = getFrames(fileFormatCtx, videoStream);
+  frames->save((string(filename) + "-out.png").c_str(), 1); // TODO: turn off
   
   ulong64 hashes[3];
   
-  CImg<float> *dctMatrixImage         = createDCTMatrixImage(32);
+  CImg<float> meanfilter(7, 7, 1, 1, 1);
+  CImg<float> *dctMatrixImage  = createDCTMatrixImage(32);
   CImg<float> dctMatrixTransposeImage = dctMatrixImage->get_transpose();
   
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 3; ++i) {
     CImg<uint8_t> frame = frames->at(i);
     
-    frame.blur(1.0);
-    CImg<float> frameDCTImage = (*dctMatrixImage) * frame * dctMatrixTransposeImage;
+    CImg<float> img;
+    if (frame.spectrum() == 3) {
+      img = frame.RGBtoYCbCr().channel(0).get_convolve(meanfilter);
+    }
+    else if (frame.spectrum() == 4) {
+	    img = frame.crop(
+        0, 0, 0, 0,
+        img.width() - 1, img.height() - 1, img.depth() - 1, 2
+      ).RGBtoYCbCr().channel(0).get_convolve(meanfilter);
+    }
+    else {
+	    img = frame.channel(0).get_convolve(meanfilter);
+    }
     
-    CImg<float> subsec = frameDCTImage.crop(1, 1, 8, 8).unroll('x');
+    CImg<float> dctImage = (*dctMatrixImage) * img * dctMatrixTransposeImage;
+    
+    CImg<float> subsec = dctImage.crop(1, 1, 8, 8).unroll('x');
     float median = subsec.median();
     
     ulong64 hash = 0x0000000000000000;
     ulong64 one  = 0x0000000000000001;
     
-    for (int j = 0; j < 64; j++) {
+    for (int j = 0; j < 64; ++j) {
       if (subsec(j) > median) {
-        hash |= one;
+	      hash |= one;
       }
-      
-      one = one << 1;
+	    one = one << 1;
     }
     
     hashes[i] = hash;
@@ -182,8 +196,6 @@ CImgList<uint8_t>* getFrames(AVFormatContext* fileFormatCtx, AVStream* videoStre
   CImgList<uint8_t>* frames = new CImgList<uint8_t>();
   readFrames(frames, frameIndexes, 3, fileFormatCtx, videoStream);
   
-  frames->save((string(fileFormatCtx->filename) + "-out.png").c_str(), 1);
-  
   if (frames->size() != 3) {
     frames->clear();
     delete frames;
@@ -228,8 +240,8 @@ void readFrames(CImgList<uint8_t> *frameImages, int* frameIndexes, int numFrameI
   
   // allocate the frames
   AVFrame* origFrame = avcodec_alloc_frame();
-  AVFrame* convFrame = avcodec_alloc_frame();
-	if (!origFrame || !convFrame) {
+  AVFrame* img = avcodec_alloc_frame();
+	if (!origFrame || !img) {
     throw runtime_error("Unable to allocate frames.");
   }
   
@@ -241,7 +253,7 @@ void readFrames(CImgList<uint8_t> *frameImages, int* frameIndexes, int numFrameI
   }
   
   // setup the converted frame
-	avpicture_fill((AVPicture *)convFrame, buffer, pixelFormat, width, height);
+	avpicture_fill((AVPicture *)img, buffer, pixelFormat, width, height);
 	
   // create the scaler context
 	SwsContext *swsCtx = sws_getContext(
@@ -302,11 +314,11 @@ void readFrames(CImgList<uint8_t> *frameImages, int* frameIndexes, int numFrameI
     // check if the frame is one we want
     if (frameIndex == targetFrameIndex) {
       // scale the frame
-      sws_scale(swsCtx, origFrame->data, origFrame->linesize, 0, videoStream->codec->height, convFrame->data, convFrame->linesize);
+      sws_scale(swsCtx, origFrame->data, origFrame->linesize, 0, videoStream->codec->height, img->data, img->linesize);
       
       // convert the frame to an image
       CImg<uint8_t> frameImage;
-      frameImage.assign(*convFrame->data, channels, width, height, 1, true);
+      frameImage.assign(*img->data, channels, width, height, 1, true);
       frameImage.permute_axes("yzcx");
       
       // add the image to the list
@@ -322,8 +334,8 @@ void readFrames(CImgList<uint8_t> *frameImages, int* frameIndexes, int numFrameI
 	av_free(buffer);
 	buffer = NULL;
   
-	av_free(convFrame);
-	convFrame = NULL;
+	av_free(img);
+	img = NULL;
   
 	av_free(origFrame);
 	origFrame = NULL;

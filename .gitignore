@@ -1,4 +1,5 @@
 Makefile
+Makefile.in
 .deps
 .libs
 *.o
@@ -16,6 +17,8 @@ Makefile
 /examples/test_texthash
 /examples/test_texthash2
 /examples/test_video
+/examples/compare_fingerprints
+/examples/create_video_fingerprint
 /libtool
 /pHash.pc
 /stamp-h1

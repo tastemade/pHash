@@ -32,4 +32,8 @@ test_video_LDADD = $(top_builddir)/src/libpHash.la
 noinst_PROGRAMS += create_video_fingerprint
 create_video_fingerprint_SOURCES = create_video_fingerprint.cpp
 create_video_fingerprint_LDADD = $(top_builddir)/src/libpHash.la
+
+noinst_PROGRAMS += compare_fingerprints
+compare_fingerprints_SOURCES = compare_fingerprints.cpp
+compare_fingerprints_LDADD = $(top_builddir)/src/libpHash.la
 endif

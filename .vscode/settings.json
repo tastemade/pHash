@@ -32,6 +32,7 @@
     "ios": "cpp",
     "limits": "cpp",
     "__functional_base_03": "cpp",
-    "istream": "cpp"
+    "istream": "cpp",
+    "list": "cpp"
   }
 }
