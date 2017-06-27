@@ -168,7 +168,7 @@ void openVideo(const char* filename, AVFormatContext** fileFormatCtxPtr, AVStrea
   AVCodec *videoDecoder = avcodec_find_decoder(videoStream->codec->codec_id);
   if (!videoDecoder) {
     avformat_close_input(&fileFormatCtx);
-    throw runtime_error(string("Unable to find decoder for codec ID: ") + to_string(videoStream->codec->codec_id));
+    throw runtime_error("Unable to find decoder for codec ID.");
   }
   
 	// open the codec
@@ -201,7 +201,7 @@ CImgList<uint8_t>* getFrames(AVFormatContext* fileFormatCtx, AVStream* videoStre
     delete frames;
     frames = NULL;
     
-    throw runtime_error(string("Number of frames read is not 3: ") + to_string(frames->size()));
+    throw runtime_error("Number of frames read is not 3.");
     return NULL;
   }
   
