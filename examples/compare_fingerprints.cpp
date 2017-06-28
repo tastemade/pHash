@@ -14,18 +14,17 @@ int main(int argc, char** argv) {
     stoull(argv[4]), stoull(argv[5]), stoull(argv[6])
   };
   
-  int dist1A = __builtin_popcountll(fingerprintA[0]^fingerprintB[0]);
-  int dist2A = __builtin_popcountll(fingerprintA[1]^fingerprintB[1]);
-  int dist3A = __builtin_popcountll(fingerprintA[2]^fingerprintB[2]);
+  // calculate the hamming distance for each hash
+  int dist1 = __builtin_popcountll(fingerprintA[0]^fingerprintB[0]);
+  int dist2 = __builtin_popcountll(fingerprintA[1]^fingerprintB[1]);
+  int dist3 = __builtin_popcountll(fingerprintA[2]^fingerprintB[2]);
   
-  int dist1B = ph_hamming_distance(fingerprintA[0], fingerprintB[0]);
-  int dist2B = ph_hamming_distance(fingerprintA[1], fingerprintB[1]);
-  int dist3B = ph_hamming_distance(fingerprintA[2], fingerprintB[2]);
+  // add all the distances for the total distance
+  int dist = dist1 + dist2 + dist3;
   
-  float distA = (dist1A + dist2A + dist3A) / 3.0f;
-  float distB = (dist1B + dist2B + dist3B) / 3.0f;
+  // turn the distance (0 to 192) into a simularity score (1 to 0)
+  // each distance has a range of 0-64 (64 being the number of bits in a 64bit int/long long)
+  float sim = 1 - ((float)dist / (64*3)); 
   
-  printf("%i %i %i = %f\n", dist1A, dist2A, dist3A, distA);
-  printf("Check:\n");
-  printf("%i %i %i = %f\n", dist1B, dist2B, dist3B, distB);
+  printf("%f\n", sim);
 }
