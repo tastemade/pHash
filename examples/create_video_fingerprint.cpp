@@ -5,17 +5,10 @@
 #include <string>
 #include <stdexcept>
 
-/*
-./examples/create_video_hash ./videos/12510.mp4 
-hashSet[0]=f3cd874364927cc1
-hashSet[1]=3fcab54d025eb9a
-hashSet[2]=af298bb13d1b10ab
-*/
+#define NUM_HASHES 5
 
 struct fingerprint_t {
-  ulong64 hash1;
-  ulong64 hash2;
-  ulong64 hash3;
+  ulong64 hashes[NUM_HASHES];
 };
 
 
@@ -46,10 +39,13 @@ int main(int argc, char** argv) {
   }
   
   fingerprint_t fingerprint = createFingerprint(filepath);
-  printf(
-    "%llu %llu %llu\n",
-    fingerprint.hash1, fingerprint.hash2, fingerprint.hash3
-  );
+  for (int i = 0; i < NUM_HASHES; ++i) {
+    printf("%llu", fingerprint.hashes[i]);
+    if (i < NUM_HASHES - 1) {
+      printf(" ");
+    }
+  }
+  printf("\n");
   
   exit(0);
 }
@@ -63,13 +59,13 @@ fingerprint_t createFingerprint(const char *filename) {
   CImgList<uint8_t>* frames = getFrames(fileFormatCtx, videoStream);
   frames->save((string(filename) + "-out.png").c_str(), 1); // TODO: turn off
   
-  ulong64 hashes[3];
+  fingerprint_t fingerprint = {};
   
   CImg<float> meanfilter(7, 7, 1, 1, 1);
   CImg<float> *dctMatrixImage  = createDCTMatrixImage(32);
   CImg<float> dctMatrixTransposeImage = dctMatrixImage->get_transpose();
   
-  for (int i = 0; i < 3; ++i) {
+  for (int i = 0; i < NUM_HASHES; ++i) {
     CImg<uint8_t> frame = frames->at(i);
     
     CImg<float> img;
@@ -101,14 +97,10 @@ fingerprint_t createFingerprint(const char *filename) {
 	    one = one << 1;
     }
     
-    hashes[i] = hash;
+    fingerprint.hashes[i] = hash;
   }
   
-  fingerprint_t fingerprint = {
-    .hash1 = hashes[0],
-    .hash2 = hashes[1],
-    .hash3 = hashes[2]
-  };
+  
   
   frames->clear();
   delete frames;
@@ -187,21 +179,20 @@ void openVideo(const char* filename, AVFormatContext** fileFormatCtxPtr, AVStrea
 CImgList<uint8_t>* getFrames(AVFormatContext* fileFormatCtx, AVStream* videoStream) {
   long numFrames = getNumFrames(videoStream);
   
-  int frameIndexes[3] = {
-    (int)(numFrames * 0.25f),
-    (int)(numFrames * 0.5f ),
-    (int)(numFrames * 0.75f)
-  };
+  int frameIndexes[NUM_HASHES] = {};
+  for (int i = 0; i < NUM_HASHES; ++i) {
+    frameIndexes[i] = (int)(numFrames * ((float)(i+1) / (NUM_HASHES + 1)));
+  }
   
   CImgList<uint8_t>* frames = new CImgList<uint8_t>();
-  readFrames(frames, frameIndexes, 3, fileFormatCtx, videoStream);
+  readFrames(frames, frameIndexes, NUM_HASHES, fileFormatCtx, videoStream);
   
-  if (frames->size() != 3) {
+  if (frames->size() != NUM_HASHES) {
     frames->clear();
     delete frames;
     frames = NULL;
     
-    throw runtime_error("Number of frames read is not 3.");
+    throw runtime_error("Incorrect number of frames read.");
     return NULL;
   }
   
