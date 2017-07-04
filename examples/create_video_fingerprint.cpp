@@ -5,10 +5,11 @@
 #include <string>
 #include <stdexcept>
 
-#define NUM_HASHES 5
+#define NUM_HASHED_FRAMES 5
+#define NUM_HASHES_PER_FRAME 5
 
 struct fingerprint_t {
-  ulong64 hashes[NUM_HASHES];
+  ulong64 hashes[NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME];
 };
 
 
@@ -25,7 +26,7 @@ int main(int argc, char** argv) {
   av_log_set_level(AV_LOG_QUIET);
   av_register_all();
   
-  const char* usage = "USAGE: created_video_hash \"path/to/video.mp4\"\n";
+  const char* usage = "USAGE: created_video_fingerprint \"path/to/video.mp4\"\n";
   
   if (argc < 2) {
     printf("%s", usage);
@@ -39,11 +40,13 @@ int main(int argc, char** argv) {
   }
   
   fingerprint_t fingerprint = createFingerprint(filepath);
-  for (int i = 0; i < NUM_HASHES; ++i) {
-    printf("%llu", fingerprint.hashes[i]);
-    if (i < NUM_HASHES - 1) {
+  for (int i = 0; i < NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME; ++i) {
+    if (i > 0) {
       printf(" ");
     }
+    // convert unsigned int64 to signed int64 (without changing binary)
+    long long c = 0 | fingerprint.hashes[i];
+    printf("%lld", c);
   }
   printf("\n");
   
@@ -57,7 +60,7 @@ fingerprint_t createFingerprint(const char *filename) {
   openVideo(filename, &fileFormatCtx, &videoStream);
   
   CImgList<uint8_t>* frames = getFrames(fileFormatCtx, videoStream);
-  frames->save((string(filename) + "-out.png").c_str(), 1); // TODO: turn off
+  //frames->save((string(filename) + "-out.png").c_str(), 1); // TODO: turn off
   
   fingerprint_t fingerprint = {};
   
@@ -65,7 +68,7 @@ fingerprint_t createFingerprint(const char *filename) {
   CImg<float> *dctMatrixImage  = createDCTMatrixImage(32);
   CImg<float> dctMatrixTransposeImage = dctMatrixImage->get_transpose();
   
-  for (int i = 0; i < NUM_HASHES; ++i) {
+  for (int i = 0; i < NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME; ++i) {
     CImg<uint8_t> frame = frames->at(i);
     
     CImg<float> img;
@@ -179,15 +182,19 @@ void openVideo(const char* filename, AVFormatContext** fileFormatCtxPtr, AVStrea
 CImgList<uint8_t>* getFrames(AVFormatContext* fileFormatCtx, AVStream* videoStream) {
   long numFrames = getNumFrames(videoStream);
   
-  int frameIndexes[NUM_HASHES] = {};
-  for (int i = 0; i < NUM_HASHES; ++i) {
-    frameIndexes[i] = (int)(numFrames * ((float)(i+1) / (NUM_HASHES + 1)));
+  int frameIndexes[NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME] = {};
+  for (int i = 0; i < NUM_HASHED_FRAMES; ++i) {
+    int baseFrameIndex = (int)(numFrames * ((float)(i+1) / (NUM_HASHED_FRAMES + 1)));
+    
+    for (int j = 0; j < NUM_HASHES_PER_FRAME; ++j) {
+      frameIndexes[i * NUM_HASHES_PER_FRAME + j] = baseFrameIndex + (j - (NUM_HASHES_PER_FRAME / 2));
+    }
   }
   
   CImgList<uint8_t>* frames = new CImgList<uint8_t>();
-  readFrames(frames, frameIndexes, NUM_HASHES, fileFormatCtx, videoStream);
+  readFrames(frames, frameIndexes, NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME, fileFormatCtx, videoStream);
   
-  if (frames->size() != NUM_HASHES) {
+  if (frames->size() != NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME) {
     frames->clear();
     delete frames;
     frames = NULL;
