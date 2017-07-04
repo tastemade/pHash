@@ -45,6 +45,7 @@ sudo make install
 
 git clone git@github.com:tastemade/pHash.git phash
 cd phash
+git checkout tastemade
 sudo cp /usr/local/include/CImg.h ./
 ./configure LIBS='-lavcodec -lavutil' --enable-audio-hash=no
 make
