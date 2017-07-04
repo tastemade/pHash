@@ -22,7 +22,7 @@ grep -r 'avcodec_alloc_frame' /usr/local/include/
 ldd `which ffmpeg`
 
 
-curl http://cimg.eu/files/CImg_latest.zip > cimg.zip
+curl http://cimg.eu/files/CImg_2.0.2.zip > cimg.zip
 unzip cimg.zip
 rm cimg.zip
 mv CImg-2.0.2 cimg
