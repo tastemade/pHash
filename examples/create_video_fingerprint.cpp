@@ -45,8 +45,9 @@ int main(int argc, char** argv) {
       printf(" ");
     }
     // convert unsigned int64 to signed int64 (without changing binary)
-    long long c = 0 | fingerprint.hashes[i];
-    printf("%lld", c);
+    unsigned long long hash = fingerprint.hashes[i];
+    long long sHash = *(long long*)&hash;
+    printf("%lld", sHash);
   }
   printf("\n");
   
