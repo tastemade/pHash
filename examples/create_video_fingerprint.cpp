@@ -17,7 +17,7 @@ fingerprint_t createFingerprint(const char *filename);
 void openVideo(const char* filename, AVFormatContext** fileFormatCtx, AVStream** videoStream);
 CImgList<uint8_t>* getFrames(AVFormatContext *fileFormatCtx, AVStream* videoStream);
 long getNumFrames(AVStream* videoStream);
-void readFrames(CImgList<uint8_t> *frameImages, int* frameIndexes, int numFrameIndexes, AVFormatContext *fileFormatCtx, AVStream* videoStream);
+void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrameIndexes, AVFormatContext *fileFormatCtx, AVStream* videoStream);
 CImg<float>* createDCTMatrixImage(const int n);
 
 
@@ -183,9 +183,9 @@ void openVideo(const char* filename, AVFormatContext** fileFormatCtxPtr, AVStrea
 CImgList<uint8_t>* getFrames(AVFormatContext* fileFormatCtx, AVStream* videoStream) {
   long numFrames = getNumFrames(videoStream);
   
-  int frameIndexes[NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME] = {};
+  long frameIndexes[NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME] = {};
   for (int i = 0; i < NUM_HASHED_FRAMES; ++i) {
-    int baseFrameIndex = (int)(numFrames * ((float)(i+1) / (NUM_HASHED_FRAMES + 1)));
+    long baseFrameIndex = (long)(numFrames * ((double)(i+1) / (NUM_HASHED_FRAMES + 1)));
     
     for (int j = 0; j < NUM_HASHES_PER_FRAME; ++j) {
       frameIndexes[i * NUM_HASHES_PER_FRAME + j] = baseFrameIndex + (j - (NUM_HASHES_PER_FRAME / 2));
@@ -231,7 +231,7 @@ long getNumFrames(AVStream* videoStream) {
 }
 
 // NOTE: frameIndexes must be in ascending order
-void readFrames(CImgList<uint8_t> *frameImages, int* frameIndexes, int numFrameIndexes, AVFormatContext *fileFormatCtx, AVStream* videoStream) {
+void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrameIndexes, AVFormatContext *fileFormatCtx, AVStream* videoStream) {
   int width = 32;
   int height = 32;
   PixelFormat pixelFormat = PIX_FMT_GRAY8;
@@ -277,9 +277,9 @@ void readFrames(CImgList<uint8_t> *frameImages, int* frameIndexes, int numFrameI
   
   // read frames from the video
   int targetFrameIndexNum = 0;
-  int frameIndex = 0;
+  long frameIndex = 0;
 	while (targetFrameIndexNum < numFrameIndexes) {
-    int targetFrameIndex = frameIndexes[targetFrameIndexNum];
+    long targetFrameIndex = frameIndexes[targetFrameIndexNum];
     
 	  AVPacket packet;
     int ret = av_read_frame(fileFormatCtx, &packet);
