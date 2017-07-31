@@ -77,13 +77,13 @@ fingerprint_t createFingerprint(const char *filename) {
       img = frame.RGBtoYCbCr().channel(0).get_convolve(meanfilter);
     }
     else if (frame.spectrum() == 4) {
-	    img = frame.crop(
+      img = frame.crop(
         0, 0, 0, 0,
         img.width() - 1, img.height() - 1, img.depth() - 1, 2
       ).RGBtoYCbCr().channel(0).get_convolve(meanfilter);
     }
     else {
-	    img = frame.channel(0).get_convolve(meanfilter);
+      img = frame.channel(0).get_convolve(meanfilter);
     }
     
     CImg<float> dctImage = (*dctMatrixImage) * img * dctMatrixTransposeImage;
@@ -96,9 +96,9 @@ fingerprint_t createFingerprint(const char *filename) {
     
     for (int j = 0; j < 64; ++j) {
       if (subsec(j) > median) {
-	      hash |= one;
+        hash |= one;
       }
-	    one = one << 1;
+      one = one << 1;
     }
     
     fingerprint.hashes[i] = hash;
@@ -114,7 +114,7 @@ fingerprint_t createFingerprint(const char *filename) {
   dctMatrixImage = NULL;
   
   avcodec_close(videoStream->codec);
-	avformat_close_input(&fileFormatCtx);
+  avformat_close_input(&fileFormatCtx);
   
   return fingerprint;
 }
@@ -123,7 +123,7 @@ void openVideo(const char* filename, AVFormatContext** fileFormatCtxPtr, AVStrea
   // open the video file
   AVFormatContext* fileFormatCtx = NULL;
   int ret = avformat_open_input(&fileFormatCtx, filename, NULL, NULL);
-	if (ret < 0) {
+  if (ret < 0) {
     char errstr[200];
     throw runtime_error(string("Error opening video file: ") + av_make_error_string(errstr, 200, ret));
   }
@@ -159,7 +159,7 @@ void openVideo(const char* filename, AVFormatContext** fileFormatCtxPtr, AVStrea
     avformat_close_input(&fileFormatCtx);
     
     throw runtime_error("Video steam does not have a codec context.");
-	}
+  }
   
   AVCodec *videoDecoder = avcodec_find_decoder(videoStream->codec->codec_id);
   if (!videoDecoder) {
@@ -167,9 +167,9 @@ void openVideo(const char* filename, AVFormatContext** fileFormatCtxPtr, AVStrea
     throw runtime_error("Unable to find decoder for codec ID.");
   }
   
-	// open the codec
+  // open the codec
   ret = avcodec_open2(videoStream->codec, videoDecoder, NULL);
-	if (ret < 0) {
+  if (ret < 0) {
     avformat_close_input(&fileFormatCtx);
     
     char errstr[200];
@@ -211,21 +211,21 @@ CImgList<uint8_t>* getFrames(AVFormatContext* fileFormatCtx, AVStream* videoStre
 long getNumFrames(AVStream* videoStream) {
   // get the number of frames from the steam
   long numFrames = videoStream->nb_frames;
-	if (numFrames > 0){
-	  return numFrames;
-	}
+  if (numFrames > 0){
+    return numFrames;
+  }
   
   // count frames in the stream
   numFrames = (long)av_index_search_timestamp(videoStream, videoStream->duration, AVSEEK_FLAG_ANY|AVSEEK_FLAG_BACKWARD);
   if (numFrames > 0){
-	  return numFrames;
-	}
+    return numFrames;
+  }
   
   int timebase = videoStream->time_base.den / videoStream->time_base.num;
   numFrames = videoStream->duration / timebase;
   if (numFrames > 0){
-	  return numFrames;
-	}
+    return numFrames;
+  }
   
   throw runtime_error("Unable to get number of frames.");
 }
@@ -240,22 +240,22 @@ void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrame
   // allocate the frames
   AVFrame* origFrame = avcodec_alloc_frame();
   AVFrame* img = avcodec_alloc_frame();
-	if (!origFrame || !img) {
+  if (!origFrame || !img) {
     throw runtime_error("Unable to allocate frames.");
   }
   
-	// allocate the buffer
-	int numBytes = avpicture_get_size(pixelFormat, width, height);
-	uint8_t* buffer = (uint8_t *)av_malloc(numBytes * sizeof(uint8_t));
-	if (!buffer) {
+  // allocate the buffer
+  int numBytes = avpicture_get_size(pixelFormat, width, height);
+  uint8_t* buffer = (uint8_t *)av_malloc(numBytes * sizeof(uint8_t));
+  if (!buffer) {
     throw runtime_error("Unable to allocate buffer.");
   }
   
   // setup the converted frame
-	avpicture_fill((AVPicture *)img, buffer, pixelFormat, width, height);
-	
+  avpicture_fill((AVPicture *)img, buffer, pixelFormat, width, height);
+  
   // create the scaler context
-	SwsContext *swsCtx = sws_getContext(
+  SwsContext *swsCtx = sws_getContext(
     videoStream->codec->width, videoStream->codec->height, videoStream->codec->pix_fmt,
     width, height, pixelFormat,
     SWS_BICUBIC, NULL, NULL, NULL
@@ -278,10 +278,10 @@ void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrame
   // read frames from the video
   int targetFrameIndexNum = 0;
   long frameIndex = 0;
-	while (targetFrameIndexNum < numFrameIndexes) {
+  while (targetFrameIndexNum < numFrameIndexes) {
     long targetFrameIndex = frameIndexes[targetFrameIndexNum];
     
-	  AVPacket packet;
+    AVPacket packet;
     int ret = av_read_frame(fileFormatCtx, &packet);
     if (ret < 0) {
       char errstr[200];
@@ -295,17 +295,17 @@ void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrame
     }
     
     // decode the frame using HACK for CorePNG to decode as normal PNG by default (same method used by ffmpeg)
-		AVPacket decodePacket;
-		av_init_packet(&decodePacket);
-		decodePacket.data = packet.data;
-		decodePacket.size = packet.size;
-		decodePacket.flags = AV_PKT_FLAG_KEY; 
+    AVPacket decodePacket;
+    av_init_packet(&decodePacket);
+    decodePacket.data = packet.data;
+    decodePacket.size = packet.size;
+    decodePacket.flags = AV_PKT_FLAG_KEY; 
     
     int frameFinished;
-	 	avcodec_decode_video2(videoStream->codec, origFrame, &frameFinished, &decodePacket);
+    avcodec_decode_video2(videoStream->codec, origFrame, &frameFinished, &decodePacket);
     av_free_packet(&decodePacket);
     
-	  if (!frameFinished) {
+    if (!frameFinished) {
       av_free_packet(&packet);
       continue;
     }
@@ -328,19 +328,19 @@ void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrame
     
     ++frameIndex;
     av_free_packet(&packet);
-	}
+  }
   
-	av_free(buffer);
-	buffer = NULL;
+  av_free(buffer);
+  buffer = NULL;
   
-	av_free(img);
-	img = NULL;
+  av_free(img);
+  img = NULL;
   
-	av_free(origFrame);
-	origFrame = NULL;
+  av_free(origFrame);
+  origFrame = NULL;
   
-	sws_freeContext(swsCtx);
-	swsCtx = NULL;
+  sws_freeContext(swsCtx);
+  swsCtx = NULL;
 }
 
 // Discrete cosine transform
@@ -349,9 +349,9 @@ CImg<float>* createDCTMatrixImage(const int n) {
   
   const float c1 = sqrt(2.0/n);
   for (int x = 0; x < n; x++) {
-	  for (int y = 1; y < n; y++) {
-	    *dctMatrixImage->data(x, y) = c1 * cos((cimg::PI / 2 / n) * y * (2 * x + 1));
-	  }
+    for (int y = 1; y < n; y++) {
+      *dctMatrixImage->data(x, y) = c1 * cos((cimg::PI / 2 / n) * y * (2 * x + 1));
+    }
   }
   
   return dctMatrixImage;
