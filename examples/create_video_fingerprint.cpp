@@ -8,6 +8,8 @@
 #define NUM_HASHED_FRAMES 5
 #define NUM_HASHES_PER_FRAME 5
 
+#define VERSION 2
+
 struct fingerprint_t {
   ulong64 hashes[NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME];
 };
@@ -26,7 +28,7 @@ int main(int argc, char** argv) {
   av_log_set_level(AV_LOG_QUIET);
   av_register_all();
   
-  const char* usage = "USAGE: created_video_fingerprint \"path/to/video.mp4\"\n";
+  const char* usage = "USAGE: created_video_fingerprint \"path/to/video.mp4\" [-q]\n";
   
   if (argc < 2) {
     printf("%s", usage);
@@ -39,7 +41,17 @@ int main(int argc, char** argv) {
     exit(1);
   }
   
+  bool quiet = false;
+  if (argc >= 3 && string(argv[2]).compare("-q") == 0) {
+    quiet = true;
+  }
+  
   fingerprint_t fingerprint = createFingerprint(filepath);
+  
+  if (!quiet) {
+    fprintf(stderr, "{\"version\": %i}\n", VERSION);
+  }
+  
   for (int i = 0; i < NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME; ++i) {
     if (i > 0) {
       printf(" ");
