@@ -178,6 +178,19 @@ CImgList<uint8_t>* getFrames(AVFormatContext* fileFormatCtx, AVStream* videoStre
     }
   }
   
+  // check frame indexes (should only happen if there are not enough frames)
+  if (frameIndexes[0] < 0) {
+    throw runtime_error("Invalid frame indexes chosen. First index < 0");
+  }
+  if (frameIndexes[NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME - 1] > numFrames - 1) {
+    throw runtime_error("Invalid frame indexes chosen. Last index > numFrames - 1");
+  }
+  for (int i = 1; i < NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME; ++i) {
+    if (frameIndexes[i] <= frameIndexes[i - 1]) {
+      throw runtime_error("Invalid frame indexes chosen. Indexes not in ascending order.");
+    }
+  }
+  
   CImgList<uint8_t>* frames = new CImgList<uint8_t>();
   readFrames(frames, frameIndexes, NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME, fileFormatCtx, videoStream);
   
