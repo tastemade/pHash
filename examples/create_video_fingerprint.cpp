@@ -137,22 +137,17 @@ void openVideo(const char* filename, AVFormatContext** fileFormatCtxPtr, AVStrea
     throw runtime_error(string("Error finding stream info: ") + av_make_error_string(errstr, 200, ret));
   }
   
-  // get the first video stream
-  AVStream* videoStream = NULL;
-  for(int i = 0; i < fileFormatCtx->nb_streams; i++)
-  {
-    AVStream* stream = fileFormatCtx->streams[i];
-    if (stream->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
-      videoStream = stream;
-      break;
-    }
-  }
-  
-  if (!videoStream) {
+  // get the "best" video stream
+  ret = av_find_best_stream(fileFormatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
+  if (ret < 0) {
     avformat_close_input(&fileFormatCtx);
     
-    throw runtime_error("No video stream found.");
+    char errstr[200];
+    throw runtime_error(string("Error finding best video steam: ") + av_make_error_string(errstr, 200, ret));
   }
+  int videoStreamIndex = ret;
+  
+  AVStream* videoStream = fileFormatCtx->streams[videoStreamIndex];
   
   // get the video steam codec decoder
   if (!videoStream->codec) {
@@ -260,7 +255,7 @@ void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrame
     width, height, pixelFormat,
     SWS_BICUBIC, NULL, NULL, NULL
   );
-  
+    
   /*
   // TODO: figure out a realiable way of seeking instead of reading from the start?
   for (int i = 0; i < numFrameIndexes; ++i) {
@@ -275,22 +270,37 @@ void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrame
   }
   */
   
+  // initialize packet
+  AVPacket packet;
+  av_init_packet(&packet);
+    
   // read frames from the video
+  bool readFromCache = false;
   int targetFrameIndexNum = 0;
   long frameIndex = 0;
   while (targetFrameIndexNum < numFrameIndexes) {
     long targetFrameIndex = frameIndexes[targetFrameIndexNum];
     
-    AVPacket packet;
-    int ret = av_read_frame(fileFormatCtx, &packet);
-    if (ret < 0) {
-      char errstr[200];
-      throw runtime_error(string("Error reading frame: ") + av_make_error_string(errstr, 200, ret));
+    // set packet data to NULL, let the demuxer fill it
+    packet.data = NULL;
+    packet.size = 0;
+    
+    if (!readFromCache) {
+      // read a frame from the file into the packet
+      int ret = av_read_frame(fileFormatCtx, &packet);
+      
+      // if we have reached the end of the file, stop reading from the file and start reading from the cache
+      if (ret == AVERROR_EOF) {
+        readFromCache = true;
+      }
+      else if (ret < 0) {
+        char errstr[200];
+        throw runtime_error(string("Error reading frame from file: ") + av_make_error_string(errstr, 200, ret));
+      }
     }
     
     // check if the frame was read from the correct video steam
     if (packet.stream_index != videoStream->index) {
-      av_free_packet(&packet);
       continue;
     }
     
@@ -303,10 +313,15 @@ void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrame
     
     int frameFinished;
     avcodec_decode_video2(videoStream->codec, origFrame, &frameFinished, &decodePacket);
+    
     av_free_packet(&decodePacket);
     
     if (!frameFinished) {
-      av_free_packet(&packet);
+      if (readFromCache) {
+        // if we did not get a complete frame and we are reading from the cache then we are out of frames
+        throw new runtime_error("Depleted frames.");
+      }
+      
       continue;
     }
     
@@ -327,8 +342,9 @@ void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrame
     }
     
     ++frameIndex;
-    av_free_packet(&packet);
   }
+  
+  av_free_packet(&packet);
   
   av_free(buffer);
   buffer = NULL;
