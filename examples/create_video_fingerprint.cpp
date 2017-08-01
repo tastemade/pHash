@@ -8,7 +8,7 @@
 #define NUM_HASHED_FRAMES 5
 #define NUM_HASHES_PER_FRAME 5
 
-#define VERSION 2
+#define VERSION "2.0.0"
 
 struct fingerprint_t {
   ulong64 hashes[NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME];
@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
   fingerprint_t fingerprint = createFingerprint(filepath);
   
   if (!quiet) {
-    fprintf(stderr, "{\"version\": %i}\n", VERSION);
+    fprintf(stderr, "{\"version\": \"%s\"}\n", VERSION);
   }
   
   for (int i = 0; i < NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME; ++i) {
