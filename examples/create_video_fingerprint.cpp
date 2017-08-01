@@ -131,8 +131,6 @@ void openVideo(const char* filename, AVFormatContext** fileFormatCtxPtr, AVStrea
   // find stream info
   ret = avformat_find_stream_info(fileFormatCtx, NULL);
   if (ret < 0) {
-    avformat_close_input(&fileFormatCtx);
-    
     char errstr[200];
     throw runtime_error(string("Error finding stream info: ") + av_make_error_string(errstr, 200, ret));
   }
@@ -140,8 +138,6 @@ void openVideo(const char* filename, AVFormatContext** fileFormatCtxPtr, AVStrea
   // get the "best" video stream
   ret = av_find_best_stream(fileFormatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
   if (ret < 0) {
-    avformat_close_input(&fileFormatCtx);
-    
     char errstr[200];
     throw runtime_error(string("Error finding best video steam: ") + av_make_error_string(errstr, 200, ret));
   }
@@ -151,22 +147,17 @@ void openVideo(const char* filename, AVFormatContext** fileFormatCtxPtr, AVStrea
   
   // get the video steam codec decoder
   if (!videoStream->codec) {
-    avformat_close_input(&fileFormatCtx);
-    
     throw runtime_error("Video steam does not have a codec context.");
   }
   
   AVCodec *videoDecoder = avcodec_find_decoder(videoStream->codec->codec_id);
   if (!videoDecoder) {
-    avformat_close_input(&fileFormatCtx);
     throw runtime_error("Unable to find decoder for codec ID.");
   }
   
   // open the codec
   ret = avcodec_open2(videoStream->codec, videoDecoder, NULL);
   if (ret < 0) {
-    avformat_close_input(&fileFormatCtx);
-    
     char errstr[200];
     throw runtime_error(string("Error opening codec: ") + av_make_error_string(errstr, 200, ret));
   }
@@ -180,7 +171,7 @@ CImgList<uint8_t>* getFrames(AVFormatContext* fileFormatCtx, AVStream* videoStre
   
   long frameIndexes[NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME] = {};
   for (int i = 0; i < NUM_HASHED_FRAMES; ++i) {
-    long baseFrameIndex = (long)(numFrames * ((double)(i+1) / (NUM_HASHED_FRAMES + 1)));
+    long baseFrameIndex = (numFrames * (i+1)) / (NUM_HASHED_FRAMES + 1);
     
     for (int j = 0; j < NUM_HASHES_PER_FRAME; ++j) {
       frameIndexes[i * NUM_HASHES_PER_FRAME + j] = baseFrameIndex + (j - (NUM_HASHES_PER_FRAME / 2));
@@ -191,17 +182,11 @@ CImgList<uint8_t>* getFrames(AVFormatContext* fileFormatCtx, AVStream* videoStre
   readFrames(frames, frameIndexes, NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME, fileFormatCtx, videoStream);
   
   if (frames->size() != NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME) {
-    frames->clear();
-    delete frames;
-    frames = NULL;
-    
     throw runtime_error("Incorrect number of frames read.");
-    return NULL;
   }
   
   return frames;
 }
-
 
 long getNumFrames(AVStream* videoStream) {
   // get the number of frames from the steam
@@ -233,9 +218,9 @@ void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrame
   int channels = 1;
   
   // allocate the frames
-  AVFrame* origFrame = avcodec_alloc_frame();
+  AVFrame* frame = avcodec_alloc_frame();
   AVFrame* img = avcodec_alloc_frame();
-  if (!origFrame || !img) {
+  if (!frame || !img) {
     throw runtime_error("Unable to allocate frames.");
   }
   
@@ -255,20 +240,6 @@ void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrame
     width, height, pixelFormat,
     SWS_BICUBIC, NULL, NULL, NULL
   );
-    
-  /*
-  // TODO: figure out a realiable way of seeking instead of reading from the start?
-  for (int i = 0; i < numFrameIndexes; ++i) {
-    int targetFrameIndex = frameIndexes[i];
-    
-    // seek to the nearest keyframe before the target frame
-    int ret = av_seek_frame(fileFormatCtx, videoStream->index, targetFrameIndex, AVSEEK_FLAG_FRAME|AVSEEK_FLAG_BACKWARD);
-    if (ret < 0) {
-      char errstr[200];
-      throw runtime_error(string("Error seeking to frame: ") + av_make_error_string(errstr, 200, ret));
-    }
-  }
-  */
   
   // initialize packet
   AVPacket packet;
@@ -312,7 +283,11 @@ void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrame
     decodePacket.flags = AV_PKT_FLAG_KEY; 
     
     int frameFinished;
-    avcodec_decode_video2(videoStream->codec, origFrame, &frameFinished, &decodePacket);
+    int ret = avcodec_decode_video2(videoStream->codec, frame, &frameFinished, &decodePacket);
+    if (ret < 0) {
+      char errstr[200];
+      throw runtime_error(string("Error decoding video frame: ") + av_make_error_string(errstr, 200, ret));
+    }
     
     av_free_packet(&decodePacket);
     
@@ -328,7 +303,7 @@ void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrame
     // check if the frame is one we want
     if (frameIndex == targetFrameIndex) {
       // scale the frame
-      sws_scale(swsCtx, origFrame->data, origFrame->linesize, 0, videoStream->codec->height, img->data, img->linesize);
+      sws_scale(swsCtx, frame->data, frame->linesize, 0, videoStream->codec->height, img->data, img->linesize);
       
       // convert the frame to an image
       CImg<uint8_t> frameImage;
@@ -352,8 +327,8 @@ void readFrames(CImgList<uint8_t> *frameImages, long* frameIndexes, int numFrame
   av_free(img);
   img = NULL;
   
-  av_free(origFrame);
-  origFrame = NULL;
+  av_free(frame);
+  frame = NULL;
   
   sws_freeContext(swsCtx);
   swsCtx = NULL;
