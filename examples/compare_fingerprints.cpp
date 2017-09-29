@@ -7,6 +7,7 @@ using namespace std;
 
 
 int main(int argc, char** argv) {
+  /*
   if (argc < NUM_HASHED_FRAMES * NUM_HASHES_PER_FRAME * 2 + 1) {
     printf("USAGE: fp1h1 fp2h2... fp2h1 fp2h2... [-v]\n");
     return 1;
@@ -59,4 +60,5 @@ int main(int argc, char** argv) {
   }
   
   printf("%f\n", sim);
+  */
 }
